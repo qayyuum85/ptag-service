@@ -1,0 +1,9 @@
+version: '3.8'
+services:
+  ptag-local:
+    image: "postgres:latest"
+    container_name: ptag-local
+    ports:
+      - "5432:5432"
+    volumes:
+      - "/home/qayyuum/postgres/:/var/lib/postgresql/data"

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { RequestHandler } from 'express';
 
 export enum Role {
     ADMIN = 'ADMIN',
@@ -8,6 +9,18 @@ export enum Role {
 }
 
 const prisma = new PrismaClient();
+
+export const handleCreateUserRole: RequestHandler<{ id: number }, any, { role: Role }> = async (req, res) => {
+    const { id: userId } = req.params;
+    const { role } = req.body;
+    const response = await createUserRole(Number(userId), role);
+
+    if (!response) {
+        res.status(400).json({ success: false });
+        return;
+    }
+    res.status(200).json({ success: true });
+};
 
 export const createUserRole = async (userId: number, role: Role) => {
     try {

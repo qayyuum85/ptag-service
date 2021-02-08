@@ -8,7 +8,7 @@ app.use(json());
 
 app.use('/users', usersRoutes);
 
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     res.status(500).json({ message: err.message });
 });
 
