@@ -1,22 +1,42 @@
 import { RequestHandler } from 'express';
 import { IsDefined, IsEmail, validateOrReject } from 'class-validator';
 import { plainToClass } from 'class-transformer';
-import { PrismaClient, User } from '@prisma/client';
+import { PrismaClient, User, UserRole } from '@prisma/client';
 import { Role } from './userRole';
 import { ArrayContainsOneOf } from '../helper/ArrayContainsOneOf';
+import { BaseUser, CreateUserBodyI, UserResponse } from '../types/user';
 
 const prisma = new PrismaClient({
     errorFormat: 'pretty',
     log: ['query', 'info', `warn`, `error`],
 });
 
-type CreateUserBodyI = {
-    firstName: string;
-    lastName: string;
-    email: string;
-    address: string;
-    phone: string;
-    role: Role[];
+const UserColumnSelection = {
+    id: true,
+    firstName: true,
+    lastName: true,
+    address: true,
+    email: true,
+    phone: true,
+    UserRole: true,
+};
+
+const mapUserResponse = (
+    user: BaseUser & {
+        id: number;
+        UserRole: UserRole[];
+    }
+): UserResponse => {
+    const { id, firstName, lastName, email, phone, address } = user;
+    return {
+        id,
+        firstName,
+        lastName,
+        email,
+        phone,
+        address,
+        userRole: user.UserRole.map((r) => r.role as Role),
+    };
 };
 
 class CreateUserBody implements CreateUserBodyI {
@@ -90,41 +110,12 @@ export const createUser: RequestHandler<any, User | unknown, CreateUserBodyI> = 
     }
 };
 
-interface UserResponse {
-    id: number;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    address: string;
-    userRole: Role[];
-}
-
 export const getUsers: RequestHandler<any, UserResponse[]> = async (_, res) => {
     const allUsers = await prisma.user.findMany({
-        select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            address: true,
-            email: true,
-            phone: true,
-            UserRole: true,
-        },
+        select: UserColumnSelection,
     });
 
-    const response: UserResponse[] = allUsers.map((user) => {
-        const { id, firstName, lastName, email, phone, address } = user;
-        return {
-            id,
-            firstName,
-            lastName,
-            email,
-            phone,
-            address,
-            userRole: user.UserRole.map((r) => r.role as Role),
-        };
-    });
+    const response: UserResponse[] = allUsers.map(mapUserResponse);
     res.json(response);
 };
 
@@ -135,15 +126,7 @@ export const getUserById: RequestHandler<{ id: number }, UserResponse | unknown>
             where: {
                 id: Number(userId),
             },
-            select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                address: true,
-                email: true,
-                phone: true,
-                UserRole: true,
-            },
+            select: UserColumnSelection,
         });
 
         if (!user) {
@@ -151,16 +134,7 @@ export const getUserById: RequestHandler<{ id: number }, UserResponse | unknown>
             return;
         }
 
-        const { id, firstName, lastName, email, phone, address } = user;
-        const response = {
-            id,
-            firstName,
-            lastName,
-            email,
-            phone,
-            address,
-            userRole: user.UserRole.map((r) => r.role as Role),
-        };
+        const response = mapUserResponse(user);
         res.status(200).json(response);
     } catch (error: unknown) {
         res.status(500).json(error);
@@ -178,6 +152,13 @@ export const updateUser: RequestHandler<
             where: { id: Number(userId) },
             data: {
                 ...req.body,
+            },
+        });
+
+        await prisma.userAuditTrail.create({
+            data: {
+                userId: Number(userId),
+                fields: Object.keys(req.body),
             },
         });
         res.status(200).json(user);
