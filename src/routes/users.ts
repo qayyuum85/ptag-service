@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { createUser, getUsers, getUserById, updateUser } from '../controllers/users';
 import { handleCreateUserRole } from '../controllers/userRole';
+import authMiddleware from '../middlewares/jwt';
 const router = Router();
 
-router.post('/', createUser);
-router.get('/', getUsers);
+router.post('/register', createUser);
+router.get('/', authMiddleware, getUsers);
 router.get('/:id', getUserById);
 router.post('/:id/role', handleCreateUserRole);
 

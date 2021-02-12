@@ -1,12 +1,22 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { json } from 'body-parser';
+import cookieParser from 'cookie-parser';
 
-import usersRoutes from './routes/users';
+import * as routes from './routes';
+import { User } from '@prisma/client';
+
+declare module 'express-serve-static-core' {
+    interface Request {
+        user: User
+    }
+}
 
 const app = express();
 app.use(json());
+app.use(cookieParser());
 
-app.use('/users', usersRoutes);
+app.use('/', routes.authRouter);
+app.use('/users', routes.userRouter);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     res.status(500).json({ message: err.message });

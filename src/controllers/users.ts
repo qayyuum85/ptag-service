@@ -1,10 +1,11 @@
-import { RequestHandler } from 'express';
+import { NextFunction, Request, RequestHandler, Response } from 'express';
 import { IsDefined, IsEmail, validateOrReject } from 'class-validator';
 import { plainToClass } from 'class-transformer';
 import { PrismaClient, User, UserRole } from '@prisma/client';
+import bcrypt from 'bcrypt';
 import { Role } from './userRole';
 import { ArrayContainsOneOf } from '../helper/ArrayContainsOneOf';
-import { BaseUser, CreateUserBodyI, UserResponse } from '../types/user';
+import { BaseUser, CreateUserBodyI as UserRegisterDtoI, UserResponse } from '../types/user';
 
 const prisma = new PrismaClient({
     errorFormat: 'pretty',
@@ -39,7 +40,7 @@ const mapUserResponse = (
     };
 };
 
-class CreateUserBody implements CreateUserBodyI {
+class UserRegisterDto implements UserRegisterDtoI {
     @IsDefined()
     firstName: string;
 
@@ -62,16 +63,28 @@ class CreateUserBody implements CreateUserBodyI {
     @ArrayContainsOneOf({ containsThis: Object.keys(Role) })
     role: Role[];
 
-    constructor(firstName: string, lastName: string, email: string, address: string, phone: string, role: Role[]) {
+    @IsDefined()
+    password: string;
+
+    constructor(
+        firstName: string,
+        lastName: string,
+        email: string,
+        password: string,
+        address: string,
+        phone: string,
+        role: Role[]
+    ) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
         this.address = address;
         this.phone = phone;
         this.role = role;
+        this.password = password;
     }
 
-    getDbObject() {
+    async getDto() {
         return {
             firstName: this.firstName,
             lastName: this.lastName,
@@ -79,16 +92,22 @@ class CreateUserBody implements CreateUserBodyI {
             email: this.email,
             phone: this.phone,
             role: this.role,
+            password: await this.hashPassword(),
         };
+    }
+
+    private async hashPassword(): Promise<string> {
+        const hashedPassword = await bcrypt.hash(this.password, 10);
+        return hashedPassword;
     }
 }
 
-export const createUser: RequestHandler<any, User | unknown, CreateUserBodyI> = async (req, res, _) => {
+export const createUser: RequestHandler<any, User | unknown, UserRegisterDtoI> = async (req, res, _) => {
     try {
-        const reqBody = plainToClass(CreateUserBody, req.body);
+        const reqBody = plainToClass(UserRegisterDto, req.body);
         await validateOrReject(reqBody);
 
-        const { firstName, address, email, lastName, phone, role } = reqBody.getDbObject();
+        const { firstName, address, email, lastName, phone, role, password } = await reqBody.getDto();
         const result = await prisma.user.create({
             data: {
                 firstName,
@@ -96,21 +115,23 @@ export const createUser: RequestHandler<any, User | unknown, CreateUserBodyI> = 
                 email,
                 lastName,
                 phone,
+                password,
                 UserRole: {
                     create: role.map((r) => {
                         return { role: r as Role };
                     }),
                 },
             },
+            select: UserColumnSelection
         });
 
-        res.status(201).json(result);
+        res.status(201).json(mapUserResponse(result));
     } catch (error: any) {
         res.status(400).json(error);
     }
 };
 
-export const getUsers: RequestHandler<any, UserResponse[]> = async (_, res) => {
+export const getUsers= async (_req:Request, res:Response<UserResponse[]>, _next:NextFunction) => {
     const allUsers = await prisma.user.findMany({
         select: UserColumnSelection,
     });
@@ -144,7 +165,7 @@ export const getUserById: RequestHandler<{ id: number }, UserResponse | unknown>
 export const updateUser: RequestHandler<
     { id: string },
     User | unknown,
-    Partial<Omit<CreateUserBodyI, 'email'>>
+    Partial<Omit<UserRegisterDtoI, 'email'>>
 > = async (req, res) => {
     try {
         const userId = req.params.id;
