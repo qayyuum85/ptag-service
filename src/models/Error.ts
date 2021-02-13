@@ -17,7 +17,7 @@ export class UserNotFoundException extends HttpError {
 
 export class InvalidTokenException extends HttpError {
     constructor() {
-        super(401, `Invalid token`);
+        super(401, `Invalid access token`);
     }
 }
 

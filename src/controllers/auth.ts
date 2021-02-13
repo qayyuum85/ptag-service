@@ -21,6 +21,7 @@ export const login: RequestHandler<any, any, { email: string; password: string }
             select: {
                 id: true,
                 password: true,
+                email: true,
                 UserRole: true,
             },
         });
@@ -38,7 +39,7 @@ export const login: RequestHandler<any, any, { email: string; password: string }
         }
 
         const roles = user.UserRole.map((ur) => ur.role as Role);
-        const tokenData = createToken({ id: user.id, roles });
+        const tokenData = createToken({ id: user.id, email: user.email, roles });
         res.setHeader('Set-Cookie', createCookie(tokenData));
         res.status(200).json({ login: 'OK' });
     } catch (error: unknown) {
@@ -46,14 +47,18 @@ export const login: RequestHandler<any, any, { email: string; password: string }
     }
 };
 
+export const logout: RequestHandler = (_req, res) => {
+    res.setHeader('Set-Cookie', ['Authorization=;Max-age=0']);
+    res.sendStatus(200);
+};
 
-
-const createToken = (user: { id: number; roles: Role[] }): UserTokenData => {
+const createToken = (user: { id: number; email: string; roles: Role[] }): UserTokenData => {
     const expiresIn = 60 * 60;
     const secret = process.env.JWT_TOKEN!;
     const dataStoredInToken: DataStoredInToken = {
         userId: user.id,
-        roles: user.roles
+        roles: user.roles,
+        email: user.email
     };
 
     return {

@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { config } from 'dotenv';
-import { Response, NextFunction, RequestHandler } from 'express';
-import { DataStoredInToken, RequestWithUser } from '../types/token';
+import { RequestHandler } from 'express';
+import { DataStoredInToken } from '../types/token';
 import { PrismaClient } from '@prisma/client';
 import { InvalidTokenException, MissingTokenException } from '../models/Error';
 
@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
 export const authMiddleware: RequestHandler = async (req, _res, next) => {
     const cookies = req.cookies;
     if (cookies && cookies.Authorization) {
-        const secret = process.env.JWT_SECRET!;
+        const secret = process.env.JWT_TOKEN!;
         try {
             const verificationResponse = jwt.verify(cookies.Authorization, secret) as DataStoredInToken;
             const id = verificationResponse.userId;

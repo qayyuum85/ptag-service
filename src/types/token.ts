@@ -9,6 +9,7 @@ export interface UserTokenData {
 
 export interface DataStoredInToken {
     userId: number;
+    email: string;
     roles: Role[];
 }
 
