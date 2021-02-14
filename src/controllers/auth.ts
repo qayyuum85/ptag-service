@@ -1,13 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import { RequestHandler } from 'express';
 import bcrypt from 'bcrypt';
-import { HttpError, UnauthorizedException } from '../models/Error';
-import jwt from 'jsonwebtoken';
+import { HttpError, InvalidTokenException, UnauthorizedException } from '../models/Error';
 import { config } from 'dotenv';
 import { Role } from './userRole';
-import { AccessTokenData, RefreshTokenData } from '../types/token';
-import { getRefreshToken } from '../helper/redis';
-import { generateCookies, removeCookies } from '../helper/cookie';
+import { AccessTokenData } from '../types/token';
+import { generateCookies, getCookiesData, removeCookies } from '../helper/cookie';
 
 config();
 
@@ -50,40 +48,27 @@ export const login: RequestHandler<any, any, { email: string; password: string }
     }
 };
 
-export const logout: RequestHandler = async (req, res) => {
-    const headers = await removeCookies(req.user.id)
-    res.setHeader('Set-Cookie', headers);
-    res.sendStatus(200);
+export const logout: RequestHandler = async (req, res, next) => {
+    try {
+        const cookies = req.cookies;
+        if (cookies && cookies.Refresh) {
+            const userData = await getCookiesData(cookies.Refresh);
+            const headers = await removeCookies(userData.userId);
+            res.setHeader('Set-Cookie', headers);
+            res.sendStatus(200);
+            return;
+        }
+        next(new InvalidTokenException());
+    } catch (error) {
+        next(new HttpError(500, 'Internal Server Error'));
+    }
 };
 
 export const refreshToken: RequestHandler = async (req, res, next) => {
     try {
         const cookies = req.cookies;
         if (cookies && cookies.Refresh) {
-            const decodedToken = jwt.verify(cookies.Refresh, process.env.JWT_REFRESH_SECRET!);
-            if (!decodedToken) {
-                next(new UnauthorizedException());
-                return;
-            }
-
-            const dbUser = await getRefreshToken((decodedToken as RefreshTokenData).userId);
-            if (!dbUser) {
-                next(new UnauthorizedException());
-                return;
-            }
-
-            const isHashedTokenVerified = await bcrypt.compare(cookies.Refresh, dbUser.hashedToken);
-            if (!isHashedTokenVerified) {
-                next(new UnauthorizedException());
-                return;
-            }
-
-            const userData: AccessTokenData = {
-                userId: Number(dbUser.userId),
-                email: dbUser.email,
-                roles: dbUser.roles.split(',') as Role[],
-            };
-
+            const userData = await getCookiesData(cookies.Refresh);
             const newCookies = await generateCookies(userData);
             res.setHeader('Set-Cookie', newCookies);
             res.status(200).json({ refresh: 'OK' });
