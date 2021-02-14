@@ -26,3 +26,8 @@ export class MissingTokenException extends HttpError {
         super(401, `Token is missing`);
     }
 }
+export class UnauthorizedException extends HttpError {
+    constructor() {
+        super(403, `Forbidden`);
+    }
+}

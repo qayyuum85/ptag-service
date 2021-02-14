@@ -1,106 +1,15 @@
 import { NextFunction, Request, RequestHandler, Response } from 'express';
-import { IsDefined, IsEmail, validateOrReject } from 'class-validator';
+import { validateOrReject } from 'class-validator';
 import { plainToClass } from 'class-transformer';
-import { PrismaClient, User, UserRole } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import { PrismaClient, User } from '@prisma/client';
 import { Role } from './userRole';
-import { ArrayContainsOneOf } from '../helper/ArrayContainsOneOf';
-import { BaseUser, CreateUserBodyI as UserRegisterDtoI, UserResponse } from '../types/user';
+import { UserRegisterDtoI, UserResponse } from '../types/user';
+import { mapUserResponse, UserColumnSelection, UserRegisterDto } from '../models/Users';
 
 const prisma = new PrismaClient({
     errorFormat: 'pretty',
     log: ['query', 'info', `warn`, `error`],
 });
-
-const UserColumnSelection = {
-    id: true,
-    firstName: true,
-    lastName: true,
-    address: true,
-    email: true,
-    phone: true,
-    UserRole: true,
-};
-
-const mapUserResponse = (
-    user: BaseUser & {
-        id: number;
-        UserRole: UserRole[];
-    }
-): UserResponse => {
-    const { id, firstName, lastName, email, phone, address } = user;
-    return {
-        id,
-        firstName,
-        lastName,
-        email,
-        phone,
-        address,
-        userRole: user.UserRole.map((r) => r.role as Role),
-    };
-};
-
-class UserRegisterDto implements UserRegisterDtoI {
-    @IsDefined()
-    firstName: string;
-
-    @IsDefined()
-    lastName: string;
-
-    @IsDefined()
-    @IsEmail()
-    email: string;
-
-    @IsDefined()
-    address: string;
-
-    @IsDefined()
-    phone: string;
-
-    @IsDefined({
-        each: true,
-    })
-    @ArrayContainsOneOf({ containsThis: Object.keys(Role) })
-    role: Role[];
-
-    @IsDefined()
-    password: string;
-
-    constructor(
-        firstName: string,
-        lastName: string,
-        email: string,
-        password: string,
-        address: string,
-        phone: string,
-        role: Role[]
-    ) {
-        this.firstName = firstName;
-        this.lastName = lastName;
-        this.email = email;
-        this.address = address;
-        this.phone = phone;
-        this.role = role;
-        this.password = password;
-    }
-
-    async getDto() {
-        return {
-            firstName: this.firstName,
-            lastName: this.lastName,
-            address: this.address,
-            email: this.email,
-            phone: this.phone,
-            role: this.role,
-            password: await this.hashPassword(),
-        };
-    }
-
-    private async hashPassword(): Promise<string> {
-        const hashedPassword = await bcrypt.hash(this.password, 10);
-        return hashedPassword;
-    }
-}
 
 export const createUser: RequestHandler<any, User | unknown, UserRegisterDtoI> = async (req, res, _) => {
     try {
@@ -122,7 +31,7 @@ export const createUser: RequestHandler<any, User | unknown, UserRegisterDtoI> =
                     }),
                 },
             },
-            select: UserColumnSelection
+            select: UserColumnSelection,
         });
 
         res.status(201).json(mapUserResponse(result));
@@ -131,7 +40,8 @@ export const createUser: RequestHandler<any, User | unknown, UserRegisterDtoI> =
     }
 };
 
-export const getUsers= async (_req:Request, res:Response<UserResponse[]>, _next:NextFunction) => {
+export const getUsers = async (_req: Request, res: Response<UserResponse[]>, _next: NextFunction) => {
+    console.log('user fingerprint', _req.fingerprint);
     const allUsers = await prisma.user.findMany({
         select: UserColumnSelection,
     });

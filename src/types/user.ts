@@ -1,4 +1,4 @@
-import { Role } from "../controllers/userRole";
+import { Role } from '../controllers/userRole';
 
 export interface BaseUser {
     firstName: string;
@@ -13,7 +13,6 @@ export type UserResponse = BaseUser & {
     userRole: Role[];
 };
 
-
-export type CreateUserBodyI = BaseUser & {
+export type UserRegisterDtoI = BaseUser & {
     role: Role[];
 };
