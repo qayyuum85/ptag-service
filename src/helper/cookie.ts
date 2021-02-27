@@ -20,7 +20,7 @@ export const generateCookies = async (userData: AccessTokenData): Promise<[strin
 
 export const removeCookies = async (userId: number) => {
     await deleteRefreshToken(userId);
-    return ['Authentication=; HttpOnly; Path=/; Max-Age=0', 'Refresh=; HttpOnly; Path=/; Max-Age=0'];
+    return ['Authorization=; HttpOnly; Path=/; Max-Age=0', 'Refresh=; HttpOnly; Path=/; Max-Age=0'];
 };
 
 export const getCookiesData = async (refreshToken: string) => {
