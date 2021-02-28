@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import { json } from 'body-parser';
 import cookieParser from 'cookie-parser';
 import fingerprint from 'express-fingerprint';
+import cors from 'cors'
 
 import * as routes from './routes';
 import { User } from '@prisma/client';
@@ -14,6 +15,7 @@ declare module 'express-serve-static-core' {
 
 const app = express();
 app.use(json());
+app.use(cors({origin:'http://localhost:3000'}))
 app.use(cookieParser());
 app.use(fingerprint());
 

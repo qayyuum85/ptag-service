@@ -42,7 +42,7 @@ export const login: RequestHandler<any, any, { email: string; password: string }
         const userData: AccessTokenData = { userId: user.id, email: user.email, roles };
         const newCookies = await generateCookies(userData);
         res.setHeader('Set-Cookie', newCookies);
-        res.status(200).json({ login: 'OK' });
+        res.status(200).json(userData);
     } catch (error: unknown) {
         next(new HttpError(500, 'Internal Error'));
     }
